@@ -6,28 +6,35 @@ import (
 	"log"
 	"fmt"
 	"regexp"
+	"sync"
+	_"io/ioutil"
+	"encoding/json"
 )
 
-type produce struct {
-	code  string
-	label string
-	price float32
+type Produce struct {
+	Code  string
+	Name string
+	Price float32 `json:",string"`
 }
 
-// will need some globals as all the http actions will need channels
-// Requirements state that the produce "DB" need only be an in memory
-// array of data
-// ASK ABOUT THIS!!!
+type produceDB struct {
+	data []*Produce
+	lock sync.Mutex
+}
+
 var (
-	db []produce // needs to be protected by a lock
+	db produceDB
+	dbCache map[string]int
 	nameRegexp *regexp.Regexp
 	codeRegexp *regexp.Regexp
 )
 
 func init() {
 	nameRegexp = regexp.MustCompile("[0-9A-Za-z]")
-	codeRegexp = regexp.MustCompile("[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}")
-	db = []produce{}
+	codeRegexp = regexp.MustCompile("[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}$")
+	db = produceDB{}
+	dbCache = map[string]int{}
+
 }
 
 func main() {
@@ -35,13 +42,8 @@ func main() {
 	if args != nil {
 		// load db
 	}
-	fmt.Println("Running")
-	run(db)
-}
+	log.Println("Starting gannet-market-api service")
 
-func run(produceDB []produce) {
-	// need an update channel to update/invalidate the db persistence
-	// check out gob
 	http.HandleFunc("/", invalidHandler)
 	http.HandleFunc("/add", addHandler)
 	http.HandleFunc("/delete", deleteHandler)
@@ -50,34 +52,29 @@ func run(produceDB []produce) {
 }
 
 func invalidHandler(w http.ResponseWriter, r *http.Request) {
-	errHandler(w, "404 not found")
-}
-
-func errHandler(w http.ResponseWriter, msg string) {
-	fmt.Fprint(w, msg)
+	fmt.Fprint(w, "404 not found")
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		errHandler(w, "/add accepts POST requests")
+		fmt.Fprint(w, "/add accepts POST requests")
+		return
 	}
-	r.ParseForm()
-
-	// TODO these checks could be sent to a go routine
-	name := r.Form.Get("name")
-	if !(nameRegexp.Match([]byte(name))) {
-		errHandler(w, "invalid name")
+	var p Produce
+	err := json.NewDecoder(r.Body).Decode(&p)
+	if err != nil {
+		fmt.Fprint(w, "malformed request")
+		return
 	}
-	price := r.Form.Get("price")
-
-	code := r.Form.Get("code")
-	if !(codeRegexp.Match([]byte(code))) {
-		errHandler(w, "invalid code")
+	if !(nameRegexp.Match([]byte(p.Name))) {
+		fmt.Fprint(w, "invalid name")
+		return
 	}
-
-	// TODO go routine
-	fmt.Println(name, price, code)
-	fmt.Println(db)
+	if !(codeRegexp.Match([]byte(p.Code))) {
+		fmt.Fprint(w, "invalid code")
+		return
+	}
+	db.add(&p)
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,3 +84,40 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO -- GET all produce
 }
+
+func (db *produceDB) add(produce *Produce){
+	// check if produce/price currently exists
+	// THIS ASSUMES PRODUCE CODE PERSISTS. aka produce codes do not change between sessions
+	var (
+		idx int
+		updatePrice bool
+		exists bool
+	)
+
+	if idx, exists = dbCache[produce.Name]; exists {
+		if db.data[idx].Price != produce.Price {
+			// check if price is the same
+			updatePrice = true
+		} else {
+			// produce already exists at the same price
+			return
+		}
+	}
+
+	if updatePrice {
+		// update price
+		db.lock.Lock()
+		defer db.lock.Unlock()
+		db.data[idx].Price = produce.Price
+	} else {
+		// add produce for the first time
+		db.lock.Lock()
+		defer db.lock.Unlock()
+		db.data = append(db.data, produce)
+		idx = len(db.data) - 1
+		dbCache[produce.Name] = idx
+	}
+}
+
+// helper scripts
+// curl -H "Content-Type: application/json" -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080

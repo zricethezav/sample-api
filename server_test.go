@@ -25,6 +25,9 @@ func TestRegex(t *testing.T) {
 	if codeRegexp.Match([]byte("YRT6-72AS*-K736-L4AR")) {
 		t.Error("codeRegexp incorrectly matched 'YRT6-72AS*-K736-L4AR'")
 	}
+	if codeRegexp.Match([]byte("YRT6-72AS-K736-L4ARa")) {
+		t.Error("codeRegexp incorrectly matched 'YRT6-72AS*-K736-L4ARa'")
+	}
 	if codeRegexp.Match([]byte("72AS-K736-L4AR")) {
 		t.Error("codeRegexp incorrectly matched '72AS-K736-L4AR'")
 	}

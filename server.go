@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"net/http"
 	"log"
 	"fmt"
@@ -30,19 +29,14 @@ var (
 )
 
 func init() {
-	nameRegexp = regexp.MustCompile("[0-9A-Za-z]")
+	nameRegexp = regexp.MustCompile("[0-9A-Za-z]$")
 	codeRegexp = regexp.MustCompile("[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}$")
 	db = produceDB{}
 	dbCache = map[string]bool{}
 }
 
 func main() {
-	args := os.Args[1:]
-	if args != nil {
-		// load db
-	}
 	log.Println("Starting gannet-market-api service")
-
 	http.HandleFunc("/", invalidHandler)
 	http.HandleFunc("/add", addHandler)
 	http.HandleFunc("/delete", deleteHandler)
@@ -63,15 +57,15 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	var p Produce
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
-		fmt.Fprint(w, "malformed request")
+		http.Error(w, "unable to proces request", http.StatusUnprocessableEntity)
 		return
 	}
 	if !(nameRegexp.Match([]byte(p.Name))) {
-		fmt.Fprint(w, "invalid name")
+		http.Error(w, "invalid name", http.StatusUnprocessableEntity)
 		return
 	}
 	if !(codeRegexp.Match([]byte(p.Code))) {
-		fmt.Fprint(w, "invalid code")
+		http.Error(w, "invalid code", http.StatusUnprocessableEntity)
 		return
 	}
 	err = db.add(&p)

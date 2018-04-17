@@ -2,6 +2,9 @@ package main
 
 import (
 	"testing"
+	"net/http"
+	"bytes"
+	"net/http/httptest"
 )
 
 func TestRegex(t *testing.T) {
@@ -31,4 +34,31 @@ func TestRegex(t *testing.T) {
 	if codeRegexp.Match([]byte("72AS-K736-L4AR")) {
 		t.Error("codeRegexp incorrectly matched '72AS-K736-L4AR'")
 	}
+}
+
+func TestAddHandler(t *testing.T) {
+	sampleRequest := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
+	req, err := http.NewRequest("POST", "/add", bytes.NewReader(sampleRequest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	handler := http.HandlerFunc(addHandler)
+	handler.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusCreated{
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusCreated)
+	}
+}
+
+func TestDeleteHandler(t *testing.T) {
+
+}
+
+func TestFetchHandler(t *testing.T) {
+
+}
+
+func TestLoad(t *testing.T) {
+	// add, get, delete cycle for some range
 }

@@ -17,13 +17,13 @@ type Produce struct {
 
 type produceDB struct {
 	data []*Produce
-	lock sync.Mutex
+	cache map[string]bool
+	lock sync.RWMutex
 }
 
 // globals include the database, cache, and regex
 var (
 	db produceDB
-	dbCache map[string]bool
 	nameRegexp *regexp.Regexp
 	codeRegexp *regexp.Regexp
 )
@@ -32,7 +32,7 @@ func init() {
 	nameRegexp = regexp.MustCompile("[0-9A-Za-z]$")
 	codeRegexp = regexp.MustCompile("[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}$")
 	db = produceDB{}
-	dbCache = map[string]bool{}
+	db.cache = map[string]bool{}
 }
 
 func main() {
@@ -51,7 +51,7 @@ func invalidHandler(w http.ResponseWriter, r *http.Request) {
 // addHandler()
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		fmt.Fprint(w, "/add accepts POST requests")
+		http.Error(w, "/add requires POST", http.StatusMethodNotAllowed)
 		return
 	}
 	var p Produce
@@ -78,14 +78,18 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 // deleteHandler()
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "DELETE" {
+		http.Error(w, "/delete requires DELETE", http.StatusMethodNotAllowed)
+		return
+	}
 	code := r.URL.Query().Get("code")
 	if !(codeRegexp.Match([]byte(code))) {
-		http.Error(w, "entry does not exist", http.StatusUnprocessableEntity)
+		http.Error(w, "invalid code", http.StatusUnprocessableEntity)
 		return
 	}
 	err := db.delete(code)
 	if err != nil {
-		http.Error(w, "entry does not exists", http.StatusUnprocessableEntity)
+		http.Error(w, "entry does not exists", http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -94,7 +98,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 // fetchHandler()
 func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
-		fmt.Fprint(w, "/fetch accepts GET requests")
+		http.Error(w, "/fetch requires GET", http.StatusMethodNotAllowed)
 		return
 	}
 	resp, err := json.Marshal(db.data)
@@ -103,6 +107,7 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
 }
 
@@ -110,30 +115,36 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 // If the produce code already exists in the database, a 409 will be returned. Writes
 // protected by a mutex to ensure only one writer.
 func (db *produceDB) add(produce *Produce) error {
-	if _, exists := dbCache[produce.Name]; exists {
+	// ensure readers while checking cache
+	db.lock.RLock()
+	if exists, _ := db.cache[produce.Code]; exists {
+		db.lock.RUnlock()
 		return fmt.Errorf("code already exists")
-	}
 
+	}
+	db.lock.RUnlock()
+
+	// produce does not exist, need to grab a lock for the write
 	db.lock.Lock()
 	defer db.lock.Unlock()
 	// update database and cache
 	db.data = append(db.data, produce)
-	dbCache[produce.Name] = true
+	db.cache[produce.Code] = true
 	return nil
 }
 
 // ProduceDB delete() is responsible for removing produce from the produce database
 // based on a produce code.
 func (db *produceDB) delete(code string) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
 	for i, produce := range db.data {
 		if produce.Code == code {
-			db.lock.Lock()
-			defer db.lock.Unlock()
 			// remove from db, update cache
 			copy(db.data[i:], db.data[i+1:])
 			db.data[len(db.data)-1] = nil
 			db.data = db.data[:len(db.data)-1]
-			dbCache[code] = false
+			db.cache[code] = false
 			return nil
 		}
 	}

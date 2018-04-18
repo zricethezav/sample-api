@@ -32,7 +32,6 @@ The `/add` call adds a produce entry to the database
     ```
 * **Success Response**
     * **Code:** 201 <br />
-      **Content:** `{ id : 12 }`
 
 * **Error Response**
 

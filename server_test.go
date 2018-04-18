@@ -272,4 +272,16 @@ func TestFetchHandler(t *testing.T) {
 	if len(dbResp) != 9999 {
 		t.Errorf("database not filled: got %d entries want 9999", len(db.data))
 	}
+
+	req, err = http.NewRequest("POST", "/fetch", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder = httptest.NewRecorder()
+	handler = http.HandlerFunc(fetchHandler)
+	handler.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != http.StatusMethodNotAllowed{
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusMethodNotAllowed)
+	}
 }

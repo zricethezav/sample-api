@@ -33,6 +33,15 @@ var (
 	codeRegexp *regexp.Regexp
 )
 
+const (
+	BadRequest = "unable to process request"
+	BadName = "invalid name"
+	BadCode = "invalid code"
+	DuplicateEntry = "entry already exists"
+	NoEntry = "entry does not exist"
+	FailedEntries = "failed to retrieve entries"
+)
+
 func init() {
 	nameRegexp = regexp.MustCompile("[0-9A-Za-z]$")
 	codeRegexp = regexp.MustCompile("[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}$")
@@ -67,26 +76,24 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	var p Produce
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
-		http.Error(w, "unable to process request", http.StatusUnprocessableEntity)
+		http.Error(w, BadRequest, http.StatusUnprocessableEntity)
 		return
 	}
 	if !(nameRegexp.Match([]byte(p.Name))) {
-		http.Error(w, "invalid name", http.StatusUnprocessableEntity)
+		http.Error(w, BadName, http.StatusUnprocessableEntity)
 		return
 	}
 	if !(codeRegexp.Match([]byte(p.Code))) {
-		http.Error(w, "invalid code", http.StatusUnprocessableEntity)
+		http.Error(w, BadCode, http.StatusUnprocessableEntity)
 		return
 	}
 
-	// handle case insensitivity
-	// TODO test this
 	p.Name = strings.ToLower(p.Name)
 	p.Code = strings.ToLower(p.Code)
 
 	err = db.add(&p)
 	if err != nil {
-		http.Error(w, "entry already exists", http.StatusConflict)
+		http.Error(w, DuplicateEntry, http.StatusConflict)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -103,7 +110,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	code := r.URL.Query().Get("code")
 	if !(codeRegexp.Match([]byte(code))) {
-		http.Error(w, "invalid code", http.StatusUnprocessableEntity)
+		http.Error(w, BadCode, http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -112,7 +119,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := db.delete(code)
 	if err != nil {
-		http.Error(w, "entry does not exists", http.StatusNotFound)
+		http.Error(w, NoEntry, http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -129,7 +136,7 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	resp, err := json.Marshal(db.data)
 	if err != nil {
-		http.Error(w, "failed to create entry", http.StatusForbidden)
+		http.Error(w, FailedEntries, http.StatusForbidden)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -147,7 +154,7 @@ func (db *produceDB) add(produce *Produce) error {
 	db.lock.RLock()
 	if exists, _ := db.cache[produce.Code]; exists {
 		db.lock.RUnlock()
-		return fmt.Errorf("code already exists")
+		return fmt.Errorf(DuplicateEntry)
 
 	}
 	db.lock.RUnlock()
@@ -179,5 +186,5 @@ func (db *produceDB) delete(code string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("entry does not exist")
+	return fmt.Errorf(NoEntry)
 }

@@ -1,7 +1,17 @@
+sudo: required
 language: go
-go: 
-    - 1.9
-
+go:
+- 1.9
+services:
+- docker
+branches:
+- master
+- develop
 script:
-    - go test -v
-
+- go test -v
+after_success: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD ; docker push
+  zricethezav/gannet-market-api;
+env:
+  matrix:
+  - secure: VMYiTt+7y/TdzNWS2uOiFvZWRGc6YPl3v+5Yhrqh5YuyM0K4u9nOGx3o/oPm6DGp+hTEf9q1g1GJX7O4U5j2pcAy56fVY2NwcjlObUtGsAOQ5IPtSZJ3o1mUibxf6aKrZd3VkG1HFHAzIaud9tfAjVqjFGWahWgWbQvCxZUyNFo3u27vudvtIzm19xhXC4r4WaUhOjH5AyWKyRgjJ5ubFv8zi02vEbspxuOC3nNG8ezUbHs3Af8/d0nBjcaDWjB+emxLbgPcGe2Ivb60ZfrPIrcz+/m4taGUPaMnGV6N0WPx0kPp3Y5IDLKrIqaBnO/PYN1+b8gHqHVDWUxNvJHRVUDhkdcRJe9DwBUKSirxtTc4lez5OhXUL+SaoUZRbGUGs26nH2ykeDGHeomrX1RJ88BgoSJpV1wBkm0KYbwW0MFY2QmVzSUlncEdUsTaRG8OegG5iKfum8Ru/4TUOW47/eY6WLCOhowc833D/4Yn60uTR5TdwO4ORbqvNTJeEdzGrPZJWrB4PKSiIphdXVs4uuZuUgYlG9gwIYPjOdbBvFPZcoF2/wUACd11t0e36ziM/6hvfgSvj6qK5yN0YY3n2vFt/Q/SC5iPb5xvlKPUzBOy9FyQiuT+xT7lKEdgEtjZYgaJE/zBd8XI7z1zHE1SzvUZ8EGtiSvFbdS7MuZw0S8=
+  - secure: cFegayhgmsnYH6NPSoJE5D9oE+K61NWkmZtZ9s/NIDKC4xOvv/y5zqau6eb/G9wF6qgVeR6LPC0dmPcz5pZJ2GcBG0k8+AOYIY3fhp0gy5nR7SSeuw6tKiCB9P/QRzrYVnisDJUptnBt5UvTd0gpncIND+NjLRQfpQXG+h/h7oOz2HKIbPAlbpkYwDWEW05zw0fM+ZWpAcYOkpKdkNTpnr3/ZS5vYe8eUkOG6tcyywbb9cGh0OcGqhWCEKnqHyR4gmTy6vaaPr0EJQLvJpAEYlxrnNT1gu0wCw/wEq4fUDa/9GHNvlh8y76nh2BekhKWMVQdmYiQLyUGS7/ZWGfSwXXL5OI4bnqkRHc7w2fVcQGPoFL94VIF1cKXak0SFvIRIUYGXqRBds1+nANZxYsVbBDuetxPwHlq1zZHzycBLD6ZXHS5EizR5mQA9SdKMyi8la5vKqlPv76W1+U4OphBuITyUq5/wSeP3zd+iCLd4sfbyBNiHGWrfbQV8MscfqZTvwxAgyDiK9Kto4wI+hNPp70E7JPj4/IN3Qmf74AfjkXS32Z7DTlX5F4y+70gIujZpIVtc6TXYdQtblty1FE7P0Rt86TqjwVGXYB/Z3YoIO65ZvpMO5mNwZ5cz7vVXYK0L//PnTnjRuhH5mWvxbWBhMEi86WATg69QMaRQGBbcVY=

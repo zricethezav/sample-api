@@ -8,11 +8,12 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"strings"
 )
 
 func loadDB() {
 	for i := 0; i < 9999; i++ {
-		code := fmt.Sprintf("YRT6-72AS-K736-%04d", i)
+		code := strings.ToLower(fmt.Sprintf("YRT6-72AS-K736-%04d", i))
 		produce := Produce{code, "apple", 12.12}
 		db.data = append(db.data, &produce)
 		db.cache[produce.Code] = true
@@ -186,7 +187,7 @@ func TestDeleteHandler(t *testing.T) {
 			handler.ServeHTTP(recorder, req)
 			if status := recorder.Code; status != http.StatusNoContent {
 				t.Errorf("handler returned wrong status code: got %v want %v",
-					status, http.StatusNotFound)
+					status, http.StatusNoContent)
 			}
 		}(i)
 	}

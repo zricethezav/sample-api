@@ -1,12 +1,13 @@
 package main
 
 import (
-	"testing"
-	"net/http"
 	"bytes"
-	"net/http/httptest"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
+	"testing"
 )
 
 func loadDB() {
@@ -37,7 +38,6 @@ func TestRegex(t *testing.T) {
 		t.Error("nameRegexp incorrectly matched 'apple---'")
 	}
 
-
 	if codeRegexp.Match([]byte("")) {
 		t.Error("codeRegexp incorrectly matched the empty string")
 	}
@@ -59,7 +59,8 @@ func TestAddHandler(t *testing.T) {
 	sampleRequest := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badCode := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4eee", "price":"12.12"}`)
 	badName := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
-	badJson := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
+	badJSON := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
+
 
 	// valid request
 	req, err := http.NewRequest("POST", "/add", bytes.NewReader(sampleRequest))
@@ -69,7 +70,7 @@ func TestAddHandler(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := http.HandlerFunc(addHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusCreated{
+	if status := recorder.Code; status != http.StatusCreated {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusCreated)
 	}
@@ -81,7 +82,7 @@ func TestAddHandler(t *testing.T) {
 	}
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusConflict{
+	if status := recorder.Code; status != http.StatusConflict {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusConflict)
 	}
@@ -93,7 +94,7 @@ func TestAddHandler(t *testing.T) {
 	}
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity{
+	if status := recorder.Code; status != http.StatusUnprocessableEntity {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusUnprocessableEntity)
 	}
@@ -105,7 +106,7 @@ func TestAddHandler(t *testing.T) {
 	}
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity{
+	if status := recorder.Code; status != http.StatusUnprocessableEntity {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusUnprocessableEntity)
 	}
@@ -123,13 +124,13 @@ func TestAddHandler(t *testing.T) {
 	}
 
 	// bad json
-	req, err = http.NewRequest("POST", "/add", bytes.NewReader(badJson))
+	req, err = http.NewRequest("POST", "/add", bytes.NewReader(badJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity{
+	if status := recorder.Code; status != http.StatusUnprocessableEntity {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusUnprocessableEntity)
 	}
@@ -173,7 +174,7 @@ func TestDeleteHandler(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 9999; i++ {
 		wg.Add(1)
-		go func(i int){
+		go func(i int) {
 			defer wg.Done()
 			url := fmt.Sprintf("/delete?code=YRT6-72AS-K736-%04d", i)
 			req, err := http.NewRequest("DELETE", url, nil)
@@ -183,7 +184,7 @@ func TestDeleteHandler(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler := http.HandlerFunc(deleteHandler)
 			handler.ServeHTTP(recorder, req)
-			if status := recorder.Code; status != http.StatusNoContent{
+			if status := recorder.Code; status != http.StatusNoContent {
 				t.Errorf("handler returned wrong status code: got %v want %v",
 					status, http.StatusNotFound)
 			}
@@ -204,7 +205,7 @@ func TestDeleteHandler(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := http.HandlerFunc(deleteHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusMethodNotAllowed{
+	if status := recorder.Code; status != http.StatusMethodNotAllowed {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusMethodNotAllowed)
 	}
@@ -217,7 +218,7 @@ func TestDeleteHandler(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	handler = http.HandlerFunc(deleteHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity{
+	if status := recorder.Code; status != http.StatusUnprocessableEntity {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusUnprocessableEntity)
 	}
@@ -230,7 +231,7 @@ func TestDeleteHandler(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	handler = http.HandlerFunc(deleteHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusNotFound{
+	if status := recorder.Code; status != http.StatusNotFound {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusNotFound)
 	}
@@ -247,7 +248,7 @@ func TestFetchHandler(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	handler := http.HandlerFunc(fetchHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusOK{
+	if status := recorder.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
@@ -261,8 +262,13 @@ func TestFetchHandler(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	handler = http.HandlerFunc(fetchHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusOK{
+	if status := recorder.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
+	}
+	dbResp := []Produce{}
+	json.Unmarshal(recorder.Body.Bytes(), &dbResp)
+	if len(dbResp) != 9999 {
+		t.Errorf("database not filled: got %d entries want 9999", len(db.data))
 	}
 }

@@ -1,29 +1,34 @@
 package main
 
 import (
-	"net/http"
-	"log"
-	"fmt"
-	"regexp"
-	"sync"
 	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"regexp"
+	"strings"
+	"sync"
 )
 
+// Produce represents a single produce entry in the database
 type Produce struct {
 	Code  string
-	Name string
+	Name  string
 	Price float32 `json:",string"`
 }
 
+// produceDB is the database which consists of a slice of produce pointers,
+// a reader/writer mutex, and a cache to prevent unnecessary database walks.
 type produceDB struct {
-	data []*Produce
+	data  []*Produce
 	cache map[string]bool
-	lock sync.RWMutex
+	lock  sync.RWMutex
 }
 
-// globals include the database, cache, and regex
+// Globals include the database, cache, and regex. Need to be
+// accessed by goroutines.
 var (
-	db produceDB
+	db         produceDB
 	nameRegexp *regexp.Regexp
 	codeRegexp *regexp.Regexp
 )
@@ -36,19 +41,24 @@ func init() {
 }
 
 func main() {
-	log.Println("Starting gannet-market-api service")
-	http.HandleFunc("/", invalidHandler)
+	log.Println("Starting gannet-market-api")
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "page not found", http.StatusNotFound)
+	})
 	http.HandleFunc("/add", addHandler)
 	http.HandleFunc("/delete", deleteHandler)
 	http.HandleFunc("/fetch", fetchHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func invalidHandler(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "page not found", http.StatusNotFound)
-}
-
-// addHandler()
+// AddHandler is responsible for adding a produce entry to the database.
+// This function accepts POST request and expects a json of following this criteria:
+// 	 - name: alphanumeric and case insensitive
+// 	 - produce codes: alphanumeric and case insensitive and are sixteen
+// 	   characters long, with dashes separating each four character group
+// 	 - price: number with up to 2 decimal places
+// Sample add request:
+// 	 $ curl -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080/add
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "/add requires POST", http.StatusMethodNotAllowed)
@@ -57,7 +67,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	var p Produce
 	err := json.NewDecoder(r.Body).Decode(&p)
 	if err != nil {
-		http.Error(w, "unable to proces request", http.StatusUnprocessableEntity)
+		http.Error(w, "unable to process request", http.StatusUnprocessableEntity)
 		return
 	}
 	if !(nameRegexp.Match([]byte(p.Name))) {
@@ -68,6 +78,12 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid code", http.StatusUnprocessableEntity)
 		return
 	}
+
+	// handle case insensitivity
+	// TODO test this
+	p.Name = strings.ToLower(p.Name)
+	p.Code = strings.ToLower(p.Code)
+
 	err = db.add(&p)
 	if err != nil {
 		http.Error(w, "entry already exists", http.StatusConflict)
@@ -76,7 +92,10 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
-// deleteHandler()
+// DeleteHandler is responsible for removing a produce entry from the database.
+// This function accepts DELETE requests and expects a query param `code`
+// Sample delete request:
+// 	 $  curl -X "DELETE" localhost:8080/delete?code=YRT6-72AS-K736-L4ee
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		http.Error(w, "/delete requires DELETE", http.StatusMethodNotAllowed)
@@ -87,6 +106,10 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid code", http.StatusUnprocessableEntity)
 		return
 	}
+
+	// handle case insensitivity
+	code = strings.ToLower(code)
+
 	err := db.delete(code)
 	if err != nil {
 		http.Error(w, "entry does not exists", http.StatusNotFound)
@@ -95,7 +118,10 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// fetchHandler()
+// FetchHandler is responsible for reporting all the entries in the database.
+// This function accepts GET requests.
+// Sample fetch request:
+// 	$  curl -X GET 0.0.0.0:8080/fetch
 func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "/fetch requires GET", http.StatusMethodNotAllowed)
@@ -111,9 +137,11 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
-// ProduceDB add() is responsible for adding a produce entry to the produce database.
-// If the produce code already exists in the database, a 409 will be returned. Writes
-// protected by a mutex to ensure only one writer.
+// Add is a helper function called from addHandler and is responsible for adding a produce
+// entry to the produce database. This function first grabs a reader lock and
+// checks the db cache to see if the produce entry exists. If it does, unlock the reader and return an error.
+// If the entry does not exist, unlock the reader, grab a write lock and add the produce to the database and update
+// the cache.
 func (db *produceDB) add(produce *Produce) error {
 	// ensure readers while checking cache
 	db.lock.RLock()
@@ -133,8 +161,11 @@ func (db *produceDB) add(produce *Produce) error {
 	return nil
 }
 
-// ProduceDB delete() is responsible for removing produce from the produce database
-// based on a produce code.
+// Delete is responsible for removing a produce entry from the produce database.
+// This function errs on the side of caution and grabs a write lock right away
+// to avoid any data races taking the form of bad indexing when removing the entry
+// from our 'database' slice. If the entry exists in the database we remove it and update
+// the cache to reflect the change. If the entry does not exist, return an error.
 func (db *produceDB) delete(code string) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -150,6 +181,3 @@ func (db *produceDB) delete(code string) error {
 	}
 	return fmt.Errorf("entry does not exist")
 }
-
-// helper scripts
-// curl -H "Content-Type: application/json" -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080

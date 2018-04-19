@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"io"
 )
 
 func loadDB() {
@@ -56,84 +57,33 @@ func TestRegex(t *testing.T) {
 	}
 }
 
+func requestHelper(t *testing.T, handler http.HandlerFunc, method string, url string, payload io.Reader,
+	expectedStatus int) {
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	h := http.HandlerFunc(handler)
+	h.ServeHTTP(recorder, req)
+	if status := recorder.Code; status != expectedStatus {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, expectedStatus)
+	}
+}
+
 func TestAddHandler(t *testing.T) {
 	sampleRequest := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badCode := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4eee", "price":"12.12"}`)
 	badName := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badJSON := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
 
-	// valid request
-	req, err := http.NewRequest("POST", "/add", bytes.NewReader(sampleRequest))
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder := httptest.NewRecorder()
-	handler := http.HandlerFunc(addHandler)
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusCreated)
-	}
-
-	// try adding duplicate
-	req, err = http.NewRequest("POST", "/add", bytes.NewReader(sampleRequest))
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusConflict {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusConflict)
-	}
-
-	// bad produce code
-	req, err = http.NewRequest("POST", "/add", bytes.NewReader(badCode))
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusUnprocessableEntity)
-	}
-
-	// bad produce name
-	req, err = http.NewRequest("POST", "/add", bytes.NewReader(badName))
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusUnprocessableEntity)
-	}
-
-	// bad method
-	req, err = http.NewRequest("GET", "/add", bytes.NewReader(badName))
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusMethodNotAllowed)
-	}
-
-	// bad json
-	req, err = http.NewRequest("POST", "/add", bytes.NewReader(badJSON))
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusUnprocessableEntity)
-	}
+	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(sampleRequest), http.StatusCreated)
+	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(sampleRequest), http.StatusConflict)
+	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badCode), http.StatusUnprocessableEntity)
+	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badName), http.StatusUnprocessableEntity)
+	requestHelper(t, addHandler,"GET", "/add", bytes.NewReader(sampleRequest), http.StatusMethodNotAllowed)
+	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badJSON), http.StatusUnprocessableEntity)
 
 	// test db synchronizity... add 9999 entries asynchronously
 	payloadBase := `{"name":"apple","code":"YRT6-72AS-K736-%04d", "price":"12.12"}`
@@ -144,18 +94,7 @@ func TestAddHandler(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			payload := []byte(fmt.Sprintf(payloadBase, i))
-			req, err := http.NewRequest("POST", "/add", bytes.NewReader(payload))
-			if err != nil {
-				t.Fatal(err)
-			}
-			recorder := httptest.NewRecorder()
-			handler := http.HandlerFunc(addHandler)
-			handler.ServeHTTP(recorder, req)
-			if status := recorder.Code; status != http.StatusCreated {
-				fmt.Println(recorder.Body)
-				t.Errorf("%d handler returned wrong status code: got %v want %v",
-					i, status, http.StatusCreated)
-			}
+			requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(payload), http.StatusCreated)
 		}(i)
 	}
 	wg.Wait()
@@ -171,23 +110,14 @@ func TestDeleteHandler(t *testing.T) {
 	clearDB()
 	loadDB()
 
+	// clear all entries
 	var wg sync.WaitGroup
 	for i := 0; i < 9999; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			url := fmt.Sprintf("/delete?code=YRT6-72AS-K736-%04d", i)
-			req, err := http.NewRequest("DELETE", url, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			recorder := httptest.NewRecorder()
-			handler := http.HandlerFunc(deleteHandler)
-			handler.ServeHTTP(recorder, req)
-			if status := recorder.Code; status != http.StatusNoContent {
-				t.Errorf("handler returned wrong status code: got %v want %v",
-					status, http.StatusNoContent)
-			}
+			requestHelper(t, deleteHandler,"DELETE", url, nil, http.StatusNoContent)
 		}(i)
 	}
 	wg.Wait()
@@ -198,49 +128,27 @@ func TestDeleteHandler(t *testing.T) {
 
 	// bad method
 	loadDB()
-	req, err := http.NewRequest("GET", "/delete?code=YRT6-72AS-K736-1000", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder := httptest.NewRecorder()
-	handler := http.HandlerFunc(deleteHandler)
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusMethodNotAllowed)
-	}
-
-	// bad key
-	req, err = http.NewRequest("DELETE", "/delete?code=YRT6-72AS-K736-10000", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler = http.HandlerFunc(deleteHandler)
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusUnprocessableEntity {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusUnprocessableEntity)
-	}
+	requestHelper(t, deleteHandler,"GET", "/delete?code=YRT6-72AS-K736-1000",
+		nil, http.StatusMethodNotAllowed)
+	// bad code
+	requestHelper(t, deleteHandler,"DELETE", "/delete?code=YRT6-72AS-K736-10000",
+		nil, http.StatusUnprocessableEntity)
 
 	// entity not found
-	req, err = http.NewRequest("DELETE", "/delete?code=YRT6-72AS-K738-1000", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler = http.HandlerFunc(deleteHandler)
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusNotFound {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusNotFound)
-	}
+	requestHelper(t, deleteHandler,"DELETE", "/delete?code=YRT6-72AS-K736-1000",
+		nil, http.StatusNoContent)
+	requestHelper(t, deleteHandler,"DELETE", "/delete?code=YRT6-72AS-K736-1000",
+		nil, http.StatusNotFound)
 }
 
 func TestFetchHandler(t *testing.T) {
 	clearDB()
-
 	// get empty
+	requestHelper(t, fetchHandler,"GET", "/fetch",
+		nil, http.StatusOK)
+
+	// get full
+	loadDB()
 	req, err := http.NewRequest("GET", "/fetch", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -252,35 +160,13 @@ func TestFetchHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
 	}
-
-	// get full
-	loadDB()
-	req, err = http.NewRequest("GET", "/fetch", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler = http.HandlerFunc(fetchHandler)
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
 	dbResp := []Produce{}
 	json.Unmarshal(recorder.Body.Bytes(), &dbResp)
 	if len(dbResp) != 9999 {
 		t.Errorf("database not filled: got %d entries want 9999", len(db.data))
 	}
 
-	req, err = http.NewRequest("POST", "/fetch", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	handler = http.HandlerFunc(fetchHandler)
-	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusMethodNotAllowed {
-		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusMethodNotAllowed)
-	}
+	// bad method
+	requestHelper(t, fetchHandler,"POST", "/fetch",
+		nil, http.StatusMethodNotAllowed)
 }

@@ -104,10 +104,16 @@ The `/delete` call deletes a produce entry from the database based on the url pa
     $  curl -X "DELETE" localhost:8080/delete?code=YRT6-72AS-K736-L4ee
     ```
 
-#### Additional Notes:
+### Deploying
+Pushing to master will deploy a build containing the recent changes with the tag `latest`, `master`,
+and the Travis build number. Pushing to develop will deploy a building containing develop's changes with the tag
+`develop` and the Travis build number.
+
+### Additional Notes:
 I enjoyed doing this assignment as I've never set up a CI pipeline from the ground up. This one is simple but I still
-learned some useful information about Travis, like credential handling and `matrix` variables. I didn't actually deploy this
-to a cloud but if I were to deploy to a cloud provider I would opt for AWS and make use of their Elastic Beanstalk service.
+learned some useful information about Travis like using the build debugger, how to handle credentials, and I learned the
+purpose of `matrix` variables. I didn't actually deploy this to a cloud but if I were to deploy to a cloud provider
+I would opt for AWS and make use of their Elastic Beanstalk service.
 https://docs.travis-ci.com/user/deployment/elasticbeanstalk/ gives a light walk through on how that process would go.
 Test coverage is ~90%. The remaining ~10% untested code is in `func main()` which is responsible for spinning up
 the server and defining routes.

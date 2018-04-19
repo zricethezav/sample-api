@@ -33,13 +33,14 @@ var (
 	codeRegexp *regexp.Regexp
 )
 
+// Error messages
 const (
-	BadRequest = "unable to process request"
-	BadName = "invalid name"
-	BadCode = "invalid code"
+	BadRequest     = "unable to process request"
+	BadName        = "invalid name"
+	BadCode        = "invalid code"
 	DuplicateEntry = "entry already exists"
-	NoEntry = "entry does not exist"
-	FailedEntries = "failed to retrieve entries"
+	NoEntry        = "entry does not exist"
+	FailedEntries  = "failed to retrieve entries"
 )
 
 func init() {
@@ -137,6 +138,7 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := json.Marshal(db.data)
 	if err != nil {
 		http.Error(w, FailedEntries, http.StatusForbidden)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

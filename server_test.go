@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
-	"strings"
 )
 
 func loadDB() {
@@ -61,7 +61,6 @@ func TestAddHandler(t *testing.T) {
 	badCode := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4eee", "price":"12.12"}`)
 	badName := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badJSON := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
-
 
 	// valid request
 	req, err := http.NewRequest("POST", "/add", bytes.NewReader(sampleRequest))
@@ -280,7 +279,7 @@ func TestFetchHandler(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	handler = http.HandlerFunc(fetchHandler)
 	handler.ServeHTTP(recorder, req)
-	if status := recorder.Code; status != http.StatusMethodNotAllowed{
+	if status := recorder.Code; status != http.StatusMethodNotAllowed {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusMethodNotAllowed)
 	}

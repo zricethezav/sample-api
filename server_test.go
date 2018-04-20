@@ -148,6 +148,11 @@ func TestDeleteHandler(t *testing.T) {
 	if len(db.data) != 0 {
 		t.Errorf("database filled after delete: got %d entries want 0", len(db.data))
 	}
+	for code, exists := range db.cache {
+		if exists {
+			t.Errorf("cache not updating for %s", code)
+		}
+	}
 
 	// bad method
 	loadDB()
@@ -206,7 +211,7 @@ func TestLoad(t *testing.T) {
 	clearDB()
 	payloadBase := `{"name":"apple","code":"YRT6-72AS-K736-%04d", "price":"12.12"}`
 	var wg sync.WaitGroup
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 9999; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -219,5 +224,7 @@ func TestLoad(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-
+	if len(db.data) != 0 {
+		t.Errorf("database filled after delete: got %d entries want 0", len(db.data))
+	}
 }

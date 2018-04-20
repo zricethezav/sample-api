@@ -91,7 +91,7 @@ The `/fetch` call retrieves all produce entries in the database
 The `/delete` call deletes a produce entry from the database based on the url param `code` 
 * **URL**
 
-    /delete
+    /delete?code=<produce code>
 
 * **Method**
     

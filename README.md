@@ -33,6 +33,10 @@ The `/add` call adds a produce entry to the database
     ```
         {"code": <str>, "name": <str>, "price": <float>}
     ```
+    * `price` is a positive number up to 2 decimal places
+    * `name` is alphanumeric and case insensitive
+    * `code` is a code that identifies the produce and case insensitive and
+    is sixteen characters long, with dashes separating each four character group
 * **Success Response**
     * **Code:** 201 <br />
 
@@ -50,6 +54,9 @@ The `/add` call adds a produce entry to the database
     ```
     $ curl -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080/add
     ```
+* **Additional Notes**
+
+    Produce codes are unique and if you want to update the price of a produce then you must first delete the produce, then call `/add` with an updated price.
     
 
 ### Fetch

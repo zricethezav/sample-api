@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"math"
 )
 
 // Produce represents a single produce entry in the database
@@ -38,6 +39,7 @@ const (
 	BadRequest     = "unable to process request"
 	BadName        = "invalid name"
 	BadCode        = "invalid code"
+	BadPrice       = "invalid price"
 	DuplicateEntry = "entry already exists"
 	NoEntry        = "entry does not exist"
 	FailedEntries  = "failed to retrieve entries"
@@ -45,7 +47,7 @@ const (
 
 func init() {
 	nameRegexp = regexp.MustCompile("[0-9A-Za-z]$")
-	codeRegexp = regexp.MustCompile("[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}$")
+	codeRegexp = regexp.MustCompile("([0-9A-Za-z]{4}-){3}[0-9A-Za-z]{4}$")
 	db = produceDB{}
 	db.cache = map[string]bool{}
 }
@@ -86,6 +88,10 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if !(codeRegexp.Match([]byte(p.Code))) {
 		http.Error(w, BadCode, http.StatusUnprocessableEntity)
+		return
+	}
+	if !(validPrice(p.Price)) {
+		http.Error(w, BadPrice, http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -189,4 +195,14 @@ func (db *produceDB) delete(code string) error {
 		}
 	}
 	return fmt.Errorf(NoEntry)
+}
+
+// ValidPrice checks if a price is valid or not. A valid price is a positive float
+// up to two decimal places
+func validPrice(price float32) bool {
+	if price <= 0 {
+		return false
+	}
+	priceFloat := price * 1 * float32(math.Pow(10.0, float64(2)))
+	return priceFloat - float32(int(priceFloat)) == 0
 }

@@ -26,6 +26,27 @@ func clearDB() {
 	db.cache = map[string]bool{}
 }
 
+func TestValidPrice(t *testing.T) {
+	if validPrice(12.111) {
+		t.Errorf("12.111 is not a valid price")
+	}
+	if validPrice(0) {
+		t.Errorf("0 is not a valid price")
+	}
+	if validPrice(-12.111) {
+		t.Errorf("-12.111 is not a valid price")
+	}
+	if validPrice(-12.11) {
+		t.Errorf("-12.11 is not a valid price")
+	}
+	if !validPrice(1) {
+		t.Errorf("1 is a valid price")
+	}
+	if !validPrice(0.1) {
+		t.Errorf("0.1 is a valid price")
+	}
+}
+
 func TestRegex(t *testing.T) {
 	if !nameRegexp.Match([]byte("apple")) {
 		t.Error("nameRegexp failed matching apple")
@@ -74,12 +95,14 @@ func requestHelper(t *testing.T, handler http.HandlerFunc, method string, url st
 
 func TestAddHandler(t *testing.T) {
 	sampleRequest := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
+	badPrice := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.123"}`)
 	badCode := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4eee", "price":"12.12"}`)
 	badName := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badJSON := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
 
 	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(sampleRequest), http.StatusCreated)
 	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(sampleRequest), http.StatusConflict)
+	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badPrice), http.StatusUnprocessableEntity)
 	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badCode), http.StatusUnprocessableEntity)
 	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badName), http.StatusUnprocessableEntity)
 	requestHelper(t, addHandler,"GET", "/add", bytes.NewReader(sampleRequest), http.StatusMethodNotAllowed)

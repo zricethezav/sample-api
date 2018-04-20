@@ -201,3 +201,23 @@ func TestFetchHandler(t *testing.T) {
 	requestHelper(t, fetchHandler, "POST", "/fetch",
 		nil, http.StatusMethodNotAllowed)
 }
+
+func TestLoad(t *testing.T) {
+	clearDB()
+	payloadBase := `{"name":"apple","code":"YRT6-72AS-K736-%04d", "price":"12.12"}`
+	var wg sync.WaitGroup
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			payload := []byte(fmt.Sprintf(payloadBase, i))
+			url := fmt.Sprintf("/delete?code=YRT6-72AS-K736-%04d", i)
+			requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(payload), http.StatusCreated)
+			requestHelper(t, fetchHandler, "GET", "/fetch",
+				nil, http.StatusOK)
+			requestHelper(t, deleteHandler, "DELETE", url, nil, http.StatusNoContent)
+		}(i)
+	}
+	wg.Wait()
+
+}

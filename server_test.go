@@ -93,6 +93,15 @@ func requestHelper(t *testing.T, handler http.HandlerFunc, method string, url st
 	}
 }
 
+func TestProduceHandler(t *testing.T) {
+	sampleRequest := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(sampleRequest), http.StatusCreated)
+	requestHelper(t, produceHandler, "GET", "/produce", bytes.NewReader(sampleRequest), http.StatusOK)
+	requestHelper(t, produceHandler, "PUT", "/produce", bytes.NewReader(sampleRequest), http.StatusMethodNotAllowed)
+	requestHelper(t, produceHandler, "DELETE", "/produce?code=YRT6-72AS-K736-L4ee",
+		bytes.NewReader(sampleRequest), http.StatusNoContent)
+}
+
 func TestAddHandler(t *testing.T) {
 	sampleRequest := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badPrice := []byte(`{"name":"apple","code":"YRT6-72AS-K736-L4ee", "price":"12.123"}`)
@@ -100,13 +109,12 @@ func TestAddHandler(t *testing.T) {
 	badName := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badJSON := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
 
-	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(sampleRequest), http.StatusCreated)
-	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(sampleRequest), http.StatusConflict)
-	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badPrice), http.StatusUnprocessableEntity)
-	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badCode), http.StatusUnprocessableEntity)
-	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badName), http.StatusUnprocessableEntity)
-	requestHelper(t, addHandler, "GET", "/add", bytes.NewReader(sampleRequest), http.StatusMethodNotAllowed)
-	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badJSON), http.StatusUnprocessableEntity)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(sampleRequest), http.StatusCreated)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(sampleRequest), http.StatusConflict)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(badPrice), http.StatusUnprocessableEntity)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(badCode), http.StatusUnprocessableEntity)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(badName), http.StatusUnprocessableEntity)
+	requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(badJSON), http.StatusUnprocessableEntity)
 
 	// test db synchronizity... add 9999 entries asynchronously
 	payloadBase := `{"name":"apple","code":"YRT6-72AS-K736-%04d", "price":"12.12"}`
@@ -117,7 +125,7 @@ func TestAddHandler(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			payload := []byte(fmt.Sprintf(payloadBase, i))
-			requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(payload), http.StatusCreated)
+			requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(payload), http.StatusCreated)
 		}(i)
 	}
 	wg.Wait()
@@ -139,8 +147,8 @@ func TestDeleteHandler(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			url := fmt.Sprintf("/delete?code=YRT6-72AS-K736-%04d", i)
-			requestHelper(t, deleteHandler, "DELETE", url, nil, http.StatusNoContent)
+			url := fmt.Sprintf("/produce?code=YRT6-72AS-K736-%04d", i)
+			requestHelper(t, produceHandler, "DELETE", url, nil, http.StatusNoContent)
 		}(i)
 	}
 	wg.Wait()
@@ -159,30 +167,30 @@ func TestDeleteHandler(t *testing.T) {
 	requestHelper(t, deleteHandler, "GET", "/delete?code=YRT6-72AS-K736-1000",
 		nil, http.StatusMethodNotAllowed)
 	// bad code
-	requestHelper(t, deleteHandler, "DELETE", "/delete?code=YRT6-72AS-K736-10000",
+	requestHelper(t, produceHandler, "DELETE", "/produce?code=YRT6-72AS-K736-10000",
 		nil, http.StatusUnprocessableEntity)
 
 	// entity not found
-	requestHelper(t, deleteHandler, "DELETE", "/delete?code=YRT6-72AS-K736-1000",
+	requestHelper(t, produceHandler, "DELETE", "/produce?code=YRT6-72AS-K736-1000",
 		nil, http.StatusNoContent)
-	requestHelper(t, deleteHandler, "DELETE", "/delete?code=YRT6-72AS-K736-1000",
+	requestHelper(t, produceHandler, "DELETE", "/produce?code=YRT6-72AS-K736-1000",
 		nil, http.StatusNotFound)
 }
 
 func TestFetchHandler(t *testing.T) {
 	clearDB()
 	// get empty
-	requestHelper(t, fetchHandler, "GET", "/fetch",
+	requestHelper(t, produceHandler, "GET", "/produce",
 		nil, http.StatusOK)
 
 	// get full
 	loadDB()
-	req, err := http.NewRequest("GET", "/fetch", nil)
+	req, err := http.NewRequest("GET", "/produce", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	recorder := httptest.NewRecorder()
-	handler := http.HandlerFunc(fetchHandler)
+	handler := http.HandlerFunc(produceHandler)
 	handler.ServeHTTP(recorder, req)
 	if status := recorder.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
@@ -211,16 +219,16 @@ func TestLoad(t *testing.T) {
 	clearDB()
 	payloadBase := `{"name":"apple","code":"YRT6-72AS-K736-%04d", "price":"12.12"}`
 	var wg sync.WaitGroup
-	for i := 0; i < 9999; i++ {
+	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			payload := []byte(fmt.Sprintf(payloadBase, i))
-			url := fmt.Sprintf("/delete?code=YRT6-72AS-K736-%04d", i)
-			requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(payload), http.StatusCreated)
-			requestHelper(t, fetchHandler, "GET", "/fetch",
+			url := fmt.Sprintf("/produce?code=YRT6-72AS-K736-%04d", i)
+			requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(payload), http.StatusCreated)
+			requestHelper(t, produceHandler, "GET", "/produce",
 				nil, http.StatusOK)
-			requestHelper(t, deleteHandler, "DELETE", url, nil, http.StatusNoContent)
+			requestHelper(t, produceHandler, "DELETE", url, nil, http.StatusNoContent)
 		}(i)
 	}
 	wg.Wait()

@@ -18,10 +18,10 @@ docker run --rm -p PORT:8080 zricethezav/gannet-market-api:latest
 ## Interacting with the API
 *The API runs on port 8080*
 ### Add
-The `/add` call adds a produce entry to the database
+The `POST` call adds a produce entry to the database
 * **URL**
 
-    /add
+    /produce
 
 * **Method**
     
@@ -29,7 +29,7 @@ The `/add` call adds a produce entry to the database
 
 * **Body**
     
-    `/add` expects a json payload:
+    `/produce POST` expects a json payload:
     ```
         {"code": <str>, "name": <str>, "price": <float>}
     ```
@@ -52,7 +52,7 @@ The `/add` call adds a produce entry to the database
 
 * **Sample Call:**
     ```
-    $ curl -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080/add
+    $ curl -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080/produce
     ```
 * **Additional Notes**
 
@@ -60,10 +60,10 @@ The `/add` call adds a produce entry to the database
     
 
 ### Fetch
-The `/fetch` call retrieves all produce entries in the database
+The `GET` call retrieves all produce entries in the database
 * **URL**
 
-    /fetch
+    /produce
 
 * **Method**
     
@@ -78,20 +78,20 @@ The `/fetch` call retrieves all produce entries in the database
 
     Error response body is plaintext
     * **Code:** 404 <br />
-      **Content:** `unable to retreive entries`
+      **Content:** `unable to retrieve entries`
     * **Code:** 405 <br />
       **Content:** `method not allowed`
 
 * **Sample Call:**
     ```
-    $  curl -X GET 0.0.0.0:8080/fetch
+    $  curl -X GET 0.0.0.0:8080/produce
     ```
 
 ### Delete 
-The `/delete` call deletes a produce entry from the database based on the url param `code` 
+The `DELETE` call deletes a produce entry from the database based on the url param `code`
 * **URL**
 
-    /delete?code=<produce code>
+    /produce?code=<produce code>
 
 * **Method**
     
@@ -112,7 +112,7 @@ The `/delete` call deletes a produce entry from the database based on the url pa
 
 * **Sample Call:**
     ```
-    $  curl -X "DELETE" localhost:8080/delete?code=YRT6-72AS-K736-L4ee
+    $  curl -X "DELETE" localhost:8080/produce?code=YRT6-72AS-K736-L4ee
     ```
 
 ### Deploying
@@ -129,4 +129,6 @@ https://docs.travis-ci.com/user/deployment/elasticbeanstalk/ gives a light walk 
 Test coverage is ~90%. The remaining ~10% untested code is in `func main()` which is responsible for spinning up
 the server and defining routes. One final note is that I recognize the popularity of port 8080 and if this were an actual service being deployed somewhere I would change the default port and add the option to configure the port either by passing in an argument or by loading up a yaml config file.
 
+Had to put in some last minute changes after reading https://hackernoon.com/restful-api-designing-guidelines-the-best-practices-60e1d954e7c9 which gives a good rundown on RESTful designs. I think I originally wanted to employ the `/produce`url but got sidetracked by writing tests and reading up on CI. 
 
+One last note on the GET response... I would have liked to test the performance of storing the 'database' entirely as a map rather than a cache + slice. I have a feeling the map route would have been much quicker as it cuts out all code searching to constant time... just lookup the hash.

@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
-	"math"
 )
 
 // Produce represents a single produce entry in the database
@@ -95,8 +95,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.Name = strings.ToLower(p.Name)
-	p.Code = strings.ToLower(p.Code)
+	p.Code = strings.ToUpper(p.Code)
 
 	err = db.add(&p)
 	if err != nil {
@@ -122,7 +121,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// handle case insensitivity
-	code = strings.ToLower(code)
+	code = strings.ToUpper(code)
 
 	err := db.delete(code)
 	if err != nil {
@@ -204,5 +203,5 @@ func validPrice(price float32) bool {
 		return false
 	}
 	priceFloat := price * 1 * float32(math.Pow(10.0, float64(2)))
-	return priceFloat - float32(int(priceFloat)) == 0
+	return priceFloat-float32(int(priceFloat)) == 0
 }

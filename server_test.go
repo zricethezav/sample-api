@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
-	"io"
 )
 
 func loadDB() {
 	for i := 0; i < 9999; i++ {
-		code := strings.ToLower(fmt.Sprintf("YRT6-72AS-K736-%04d", i))
+		code := strings.ToUpper(fmt.Sprintf("YRT6-72AS-K736-%04d", i))
 		produce := Produce{code, "apple", 12.12}
 		db.data = append(db.data, &produce)
 		db.cache[produce.Code] = true
@@ -100,13 +100,13 @@ func TestAddHandler(t *testing.T) {
 	badName := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"}`)
 	badJSON := []byte(`{"name":"apple--","code":"YRT6-72AS-K736-L4ee", "price":"12.12"`)
 
-	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(sampleRequest), http.StatusCreated)
-	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(sampleRequest), http.StatusConflict)
-	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badPrice), http.StatusUnprocessableEntity)
-	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badCode), http.StatusUnprocessableEntity)
-	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badName), http.StatusUnprocessableEntity)
-	requestHelper(t, addHandler,"GET", "/add", bytes.NewReader(sampleRequest), http.StatusMethodNotAllowed)
-	requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(badJSON), http.StatusUnprocessableEntity)
+	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(sampleRequest), http.StatusCreated)
+	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(sampleRequest), http.StatusConflict)
+	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badPrice), http.StatusUnprocessableEntity)
+	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badCode), http.StatusUnprocessableEntity)
+	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badName), http.StatusUnprocessableEntity)
+	requestHelper(t, addHandler, "GET", "/add", bytes.NewReader(sampleRequest), http.StatusMethodNotAllowed)
+	requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(badJSON), http.StatusUnprocessableEntity)
 
 	// test db synchronizity... add 9999 entries asynchronously
 	payloadBase := `{"name":"apple","code":"YRT6-72AS-K736-%04d", "price":"12.12"}`
@@ -117,7 +117,7 @@ func TestAddHandler(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			payload := []byte(fmt.Sprintf(payloadBase, i))
-			requestHelper(t, addHandler,"POST", "/add", bytes.NewReader(payload), http.StatusCreated)
+			requestHelper(t, addHandler, "POST", "/add", bytes.NewReader(payload), http.StatusCreated)
 		}(i)
 	}
 	wg.Wait()
@@ -140,7 +140,7 @@ func TestDeleteHandler(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			url := fmt.Sprintf("/delete?code=YRT6-72AS-K736-%04d", i)
-			requestHelper(t, deleteHandler,"DELETE", url, nil, http.StatusNoContent)
+			requestHelper(t, deleteHandler, "DELETE", url, nil, http.StatusNoContent)
 		}(i)
 	}
 	wg.Wait()
@@ -151,23 +151,23 @@ func TestDeleteHandler(t *testing.T) {
 
 	// bad method
 	loadDB()
-	requestHelper(t, deleteHandler,"GET", "/delete?code=YRT6-72AS-K736-1000",
+	requestHelper(t, deleteHandler, "GET", "/delete?code=YRT6-72AS-K736-1000",
 		nil, http.StatusMethodNotAllowed)
 	// bad code
-	requestHelper(t, deleteHandler,"DELETE", "/delete?code=YRT6-72AS-K736-10000",
+	requestHelper(t, deleteHandler, "DELETE", "/delete?code=YRT6-72AS-K736-10000",
 		nil, http.StatusUnprocessableEntity)
 
 	// entity not found
-	requestHelper(t, deleteHandler,"DELETE", "/delete?code=YRT6-72AS-K736-1000",
+	requestHelper(t, deleteHandler, "DELETE", "/delete?code=YRT6-72AS-K736-1000",
 		nil, http.StatusNoContent)
-	requestHelper(t, deleteHandler,"DELETE", "/delete?code=YRT6-72AS-K736-1000",
+	requestHelper(t, deleteHandler, "DELETE", "/delete?code=YRT6-72AS-K736-1000",
 		nil, http.StatusNotFound)
 }
 
 func TestFetchHandler(t *testing.T) {
 	clearDB()
 	// get empty
-	requestHelper(t, fetchHandler,"GET", "/fetch",
+	requestHelper(t, fetchHandler, "GET", "/fetch",
 		nil, http.StatusOK)
 
 	// get full
@@ -189,7 +189,15 @@ func TestFetchHandler(t *testing.T) {
 		t.Errorf("database not filled: got %d entries want 9999", len(db.data))
 	}
 
+	// verify response body. Order is determined by loadDB
+	if dbResp[0].Name != "apple" {
+		t.Errorf("expecting name: apple, got %s", dbResp[0].Name)
+	}
+	if dbResp[0].Code != "YRT6-72AS-K736-0000" {
+		t.Errorf("code expecting YRT6-72AS-K736-0000, got %s", dbResp[0].Code)
+	}
+
 	// bad method
-	requestHelper(t, fetchHandler,"POST", "/fetch",
+	requestHelper(t, fetchHandler, "POST", "/fetch",
 		nil, http.StatusMethodNotAllowed)
 }

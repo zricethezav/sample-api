@@ -26,6 +26,15 @@ func clearDB() {
 	db.cache = map[string]bool{}
 }
 
+func TestDefaults(t *testing.T) {
+	if len(db.data) != 0 {
+		t.Error("database no init properly")
+	}
+	if len(db.cache) != 0 {
+		t.Error("cache not init properly")
+	}
+}
+
 func TestValidPrice(t *testing.T) {
 	if validPrice(12.111) {
 		t.Errorf("12.111 is not a valid price")
@@ -224,7 +233,14 @@ func TestLoad(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			payload := []byte(fmt.Sprintf(payloadBase, i))
-			url := fmt.Sprintf("/produce?code=YRT6-72AS-K736-%04d", i)
+			// code case insensitivity
+			code := fmt.Sprintf("YRT6-72AS-K736-%04d", i)
+			if i%5 == 0 {
+				code = strings.ToLower(code)
+			} else if i%3 == 0 {
+				code = strings.ToUpper(code)
+			}
+			url := fmt.Sprintf("/produce?code=%s", code)
 			requestHelper(t, produceHandler, "POST", "/produce", bytes.NewReader(payload), http.StatusCreated)
 			requestHelper(t, produceHandler, "GET", "/produce",
 				nil, http.StatusOK)

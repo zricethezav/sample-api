@@ -71,7 +71,7 @@ The `GET` call retrieves all produce entries in the database
 
 * **Success Response**
     * **Code:** 200 <br />
-    * **Content**: `[...] or null`
+    * **Content**: `[...]`
         * example: `[{"Code":"YRT6-72AS-K736-L4AR","Name":"apple","Price":"12.12"},{"Code":"YRT6-72AS-K736-L4AK","Name":"pear","Price":"2.32"}]`
 
 * **Error Response**

@@ -50,6 +50,7 @@ func init() {
 	codeRegexp = regexp.MustCompile("([0-9A-Za-z]{4}-){3}[0-9A-Za-z]{4}$")
 	db = produceDB{}
 	db.cache = map[string]bool{}
+	db.data = []*Produce{}
 }
 
 func main() {

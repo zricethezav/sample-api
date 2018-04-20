@@ -129,4 +129,6 @@ https://docs.travis-ci.com/user/deployment/elasticbeanstalk/ gives a light walk 
 Test coverage is ~90%. The remaining ~10% untested code is in `func main()` which is responsible for spinning up
 the server and defining routes. One final note is that I recognize the popularity of port 8080 and if this were an actual service being deployed somewhere I would change the default port and add the option to configure the port either by passing in an argument or by loading up a yaml config file.
 
+Had to put in some last minute changes after reading https://hackernoon.com/restful-api-designing-guidelines-the-best-practices-60e1d954e7c9 which gives a good rundown on RESTful designs. I think I originally wanted to employ the `/produce`url but got sidetracked by writing tests and reading up on CI. 
 
+One last note on the GET response... I would have liked to test the performance of storing the 'database' entirely as a map rather than a cache + slice. I have a feeling the map route would have been much quicker as it cuts out all code searching to constant time... just lookup the hash.

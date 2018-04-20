@@ -82,7 +82,7 @@ func produceHandler(w http.ResponseWriter, r *http.Request) {
 // 	   characters long, with dashes separating each four character group
 // 	 - price: number with up to 2 decimal places
 // Sample add request:
-// 	 $ curl -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080/add
+// 	 $ curl -X POST -d '{"name":"apple","code":"YRT6-72AS-K736-L4AR", "price": "12.12"}' localhost:8080/produce
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "/add requires POST", http.StatusMethodNotAllowed)
@@ -120,7 +120,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 // DeleteHandler is responsible for removing a produce entry from the database.
 // This function accepts DELETE requests and expects a query param `code`
 // Sample delete request:
-// 	 $  curl -X "DELETE" localhost:8080/delete?code=YRT6-72AS-K736-L4ee
+// 	 $  curl -X "DELETE" localhost:8080/produce?code=YRT6-72AS-K736-L4ee
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "DELETE" {
 		http.Error(w, "/delete requires DELETE", http.StatusMethodNotAllowed)
@@ -146,7 +146,7 @@ func deleteHandler(w http.ResponseWriter, r *http.Request) {
 // FetchHandler is responsible for reporting all the entries in the database.
 // This function accepts GET requests.
 // Sample fetch request:
-// 	$  curl -X GET 0.0.0.0:8080/fetch
+// 	$  curl -X GET 0.0.0.0:8080/produce
 func fetchHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "/fetch requires GET", http.StatusMethodNotAllowed)

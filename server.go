@@ -57,10 +57,22 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "page not found", http.StatusNotFound)
 	})
-	http.HandleFunc("/add", addHandler)
-	http.HandleFunc("/delete", deleteHandler)
-	http.HandleFunc("/fetch", fetchHandler)
+	http.HandleFunc("/produce", produceHandler)
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+// ProduceHandler dispatches produce commands based on http method
+func produceHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		fetchHandler(w, r)
+	case "POST":
+		addHandler(w, r)
+	case "DELETE":
+		deleteHandler(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 // AddHandler is responsible for adding a produce entry to the database.
